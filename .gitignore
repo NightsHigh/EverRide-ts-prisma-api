@@ -3,3 +3,7 @@ node_modules
 .env
 
 /src/generated/prisma
+/dist
+/prisma/migrations
+/prisma/migrations.lock.toml
+/prisma/schema.prisma

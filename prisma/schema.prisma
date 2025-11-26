@@ -15,3 +15,29 @@ model User {
 
   @@map("user")
 }
+
+model Category {
+  id Int @id @default(autoincrement())
+  name String @unique
+
+  @@map("categories")
+}
+
+model Brand {
+  id Int @id @default(autoincrement())
+  name String @unique
+
+  @@map("brands")
+}
+
+model Car {
+  id Int @id @default(autoincrement())
+  category String
+  brand String
+  model String
+  year Int
+  price String
+  fueltype String
+
+  @@map("cars")
+}
