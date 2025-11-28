@@ -4,40 +4,59 @@ generator client {
 
 datasource db {
   provider = "mysql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id Int @id @default(autoincrement())
-  name String
-  email String @unique
+  id       Int    @id @default(autoincrement())
+  name     String
+  email    String @unique
   password String
+
+  // Example: User could own cars later
+  // cars Car[]
 
   @@map("user")
 }
 
 model Category {
-  id Int @id @default(autoincrement())
+  id   Int    @id @default(autoincrement())
   name String @unique
+
+  // one-to-many: one Category -> many Cars
+  cars Car[]
 
   @@map("categories")
 }
 
 model Brand {
-  id Int @id @default(autoincrement())
+  id   Int    @id @default(autoincrement())
   name String @unique
+
+  // one-to-many: one Brand -> many Cars
+  cars Car[]
 
   @@map("brands")
 }
 
 model Car {
-  id Int @id @default(autoincrement())
-  category String
-  brand String
-  model String
-  year Int
-  price String
+  id       Int    @id @default(autoincrement())
+  model    String
+  year     Int
+  price    String   // you can change this to Decimal later
   fueltype String
 
+  // foreign keys
+  categoryId Int  categoryId Int
+
+  brandId    Int
+  categoryId Int
+
+  // relations
+  category Category @relation(fields: [categoryId], references: [id])
+  brand    Brand    @relation(fields: [brandId], references: [id])
+
   @@map("cars")
+  @@index([categoryId])
+  @@index([brandId])
 }

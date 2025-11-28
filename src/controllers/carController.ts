@@ -1,20 +1,64 @@
 import { Request, Response } from 'express';
 import { prisma } from '../prisma.js';
 
+type CarPayload = {
+  model?: string;
+  year?: number;
+  price?: string;
+  fueltype?: string;
+  brandId?: number;
+  categoryId?: number;
+};
+
+const includeRelations = {
+  brand: {
+    select: {
+      id: true,
+      name: true
+    }
+  },
+  category: {
+    select: {
+      id: true,
+      name: true
+    }
+  }
+};
+
+const parseCarPayload = (body: Request['body']): CarPayload => {
+  const payload: CarPayload = {};
+
+  if (body.model !== undefined) payload.model = String(body.model);
+  if (body.price !== undefined) payload.price = String(body.price);
+  if (body.fueltype !== undefined) payload.fueltype = String(body.fueltype);
+  if (body.year !== undefined) payload.year = Number(body.year);
+  if (body.brandId !== undefined) payload.brandId = Number(body.brandId);
+  if (body.categoryId !== undefined) payload.categoryId = Number(body.categoryId);
+
+  return payload;
+};
+
+const verifyRelations = async (brandId: number, categoryId: number) => {
+  const [brand, category] = await Promise.all([
+    prisma.brand.findUnique({ where: { id: brandId }, select: { id: true } }),
+    prisma.category.findUnique({ where: { id: categoryId }, select: { id: true } })
+  ]);
+
+  return {
+    brandExists: Boolean(brand),
+    categoryExists: Boolean(category)
+  };
+};
+
 export const getRecords = async (req: Request, res: Response) => {
   try {
     const data = await prisma.car.findMany({
-      select: {
-        id: true,
-        brand: true,
-        model: true,
-        price: true
-      },
+      include: includeRelations,
       orderBy: {
         price: 'desc'
       }
     });
-    
+
     res.json(data);
   } catch (error) {
     console.error(error);
@@ -29,7 +73,8 @@ export const getRecordById = async (req: Request, res: Response) => {
     const data = await prisma.car.findUnique({
       where: {
         id: Number(id)
-      }
+      },
+      include: includeRelations
     });
 
     if (!data) {
@@ -44,22 +89,36 @@ export const getRecordById = async (req: Request, res: Response) => {
 };
 
 export const createRecord = async (req: Request, res: Response) => {
-  const { category, brand, model, year, price, fueltype } = req.body;
+  const { brandId, categoryId, model, year, price, fueltype } = parseCarPayload(req.body);
 
-  if (!category || !brand || !model || !year || !price || !fueltype) {
+  if (
+    brandId === undefined ||
+    categoryId === undefined ||
+    !model ||
+    year === undefined ||
+    !price ||
+    !fueltype
+  ) {
     return res.status(400).json({ error: 'Alle felter skal udfyldes' });
+  }
+
+  const { brandExists, categoryExists } = await verifyRelations(brandId, categoryId);
+
+  if (!brandExists || !categoryExists) {
+    return res.status(404).json({ error: 'Brand eller kategori blev ikke fundet' });
   }
 
   try {
     const newCar = await prisma.car.create({
       data: {
-        category,
-        brand,
+        categoryId,
+        brandId,
         model,
-        year: Number(year),
+        year,
         price,
         fueltype
-      }
+      },
+      include: includeRelations
     });
 
     return res.status(201).json({ id: newCar.id, message: 'Bil oprettet succesfuldt', car: newCar });
@@ -71,7 +130,7 @@ export const createRecord = async (req: Request, res: Response) => {
 
 export const updateRecord = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { category, brand, model, year, price, fueltype } = req.body;
+  const payload = parseCarPayload(req.body);
 
   try {
     const existingCar = await prisma.car.findUnique({
@@ -82,18 +141,30 @@ export const updateRecord = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Bil ikke fundet' });
     }
 
+    if (payload.brandId !== undefined || payload.categoryId !== undefined) {
+      const relationBrandId = payload.brandId ?? existingCar.brandId;
+      const relationCategoryId = payload.categoryId ?? existingCar.categoryId;
+
+      const { brandExists, categoryExists } = await verifyRelations(relationBrandId, relationCategoryId);
+
+      if (!brandExists || !categoryExists) {
+        return res.status(404).json({ error: 'Brand eller kategori blev ikke fundet' });
+      }
+    }
+
     const updatedCar = await prisma.car.update({
       where: {
         id: Number(id)
       },
       data: {
-        category: category || existingCar.category,
-        brand: brand || existingCar.brand,
-        model: model || existingCar.model,
-        year: year ? Number(year) : existingCar.year,
-        price: price || existingCar.price,
-        fueltype: fueltype || existingCar.fueltype
-      }
+        categoryId: payload.categoryId ?? existingCar.categoryId,
+        brandId: payload.brandId ?? existingCar.brandId,
+        model: payload.model ?? existingCar.model,
+        year: payload.year ?? existingCar.year,
+        price: payload.price ?? existingCar.price,
+        fueltype: payload.fueltype ?? existingCar.fueltype
+      },
+      include: includeRelations
     });
 
     return res.status(200).json({ id: updatedCar.id, message: 'Bil opdateret succesfuldt', car: updatedCar });
