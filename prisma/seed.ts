@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -14,6 +15,19 @@ const categorySeeds = [
   { name: 'Hatchback' }
 ];
 
+async function getDefaultUser() {
+  const hashedPassword = await bcrypt.hash('changeme', 10);
+
+  return {
+    firstName: 'Admin',
+    lastName: 'User',
+    email: 'admin@example.com',
+    password: hashedPassword,
+    role: 'Admin',
+    isActive: true
+  };
+}
+
 async function main() {
   await prisma.brand.createMany({
     data: brandSeeds,
@@ -25,7 +39,15 @@ async function main() {
     skipDuplicates: true
   });
 
-  console.log('Seed completed: brands and categories ensured.');
+  const defaultUser = await getDefaultUser();
+
+  await prisma.user.upsert({
+    where: { email: defaultUser.email },
+    create: defaultUser,
+    update: defaultUser
+  });
+
+  console.log('Seed completed: brands, categories, and default user ensured.');
 }
 
 main()
