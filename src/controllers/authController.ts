@@ -74,3 +74,17 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
+
+export const authorizedAccess = (req: Request, res: Response) => {
+  res.json({
+    message: 'Adgang godkendt! Du har den korrekte rolle.',
+    user: {
+      id: req.user.id,
+      email: req.user.email,
+      firstName: req.user.firstName,
+      lastName: req.user.lastName,
+      role: req.user.role
+    }
+  });
+};
+
