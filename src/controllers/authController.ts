@@ -2,8 +2,9 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { prisma } from '../prisma.js';
+import { AuthRequest } from '../middleware/authenticateToken.js';
 
-export const getUserData = (req: Request, res: Response) => {
+export const getUserData = (req: AuthRequest, res: Response) => {
   if (!req.user) {
     return res.status(401).json({ error: 'Ingen bruger data fundet' });
   }
@@ -75,7 +76,11 @@ export const login = async (req: Request, res: Response) => {
 };
 
 
-export const authorizedAccess = (req: Request, res: Response) => {
+export const authorizedAccess = (req: AuthRequest, res: Response) => {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Ingen bruger data fundet' });
+  }
+
   res.json({
     message: 'Adgang godkendt! Du har den korrekte rolle.',
     user: {
