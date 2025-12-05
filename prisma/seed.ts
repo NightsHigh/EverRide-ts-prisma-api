@@ -1,210 +1,134 @@
-import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
-import { randomYear, randomPrice } from '../src/utils/randomData.js';
+import { prisma } from '../src/prisma';
 
-const prisma = new PrismaClient();
 
-async function getUserSeeds() {
-  const adminPassword = await bcrypt.hash('admin123', 10);
-  const userPassword = await bcrypt.hash('user123', 10);
+const main = async () => {
+ 
 
-  return [
-    {
-      firstName: 'Admin',
-      lastName: 'Nielsen',
-      email: 'admin@example.com',
-      password: adminPassword,
-      role: 'Admin',
-      isActive: true
-    },
-    {
-      firstName: 'Bruger',
-      lastName: 'Jensen',
-      email: 'user@example.com',
-      password: userPassword,
-      role: 'User',
-      isActive: true
+  await prisma.car.deleteMany();
+  await prisma.fueltype.deleteMany(); 
+  await prisma.category.deleteMany();
+  await prisma.brand.deleteMany();
+  await prisma.user.deleteMany();
+
+  // Opretter en testbruger i databasen
+  const user = await prisma.user.create({
+    data: {
+      firstname: "Test", 
+      lastname: "Bruger", 
+      email: "test@example.com", 
+      password: await bcrypt.hash('password', 10), 
+      role: "USER", 
+      isActive: true 
     }
-  ];
-}
-
-const categorySeeds = [
-  { name: 'Personbil' },
-  { name: 'Varevogn' },
-  { name: 'Lastbil' },
-  { name: 'Autocamper' },
-  { name: 'Andre' }
-];
-
-const brandSeeds = [
-  { name: 'Toyota' },
-  { name: 'Volkswagen' },
-  { name: 'BMW' },
-  { name: 'Mercedes-Benz' },
-  { name: 'Ford' },
-  { name: 'Tesla' },
-  { name: 'Volvo' }
-];
-
-const fuelTypes = ['Benzin', 'Diesel', 'El', 'Hybrid', 'Andre'];
-
-const carModels = {
-  'Toyota': ['Corolla', 'Yaris', 'RAV4', 'Camry'],
-  'Volkswagen': ['Golf', 'Passat', 'Tiguan', 'Polo'],
-  'BMW': ['3-serie', '5-serie', 'X3', 'X5'],
-  'Mercedes-Benz': ['C-Klasse', 'E-Klasse', 'GLC', 'A-Klasse'],
-  'Ford': ['Focus', 'Fiesta', 'Kuga', 'Mondeo'],
-  'Tesla': ['Model 3', 'Model Y', 'Model S'],
-  'Volvo': ['V60', 'XC60', 'V90', 'XC90']
-};
-
-async function main() {
-  console.log('🌱 Starting seed...');
-
-  console.log('📦 Seeding brands...');
-  await prisma.brand.createMany({
-    data: brandSeeds,
-    skipDuplicates: true
   });
 
-  console.log('📂 Seeding categories...');
-  await prisma.category.createMany({
-    data: categorySeeds,
-    skipDuplicates: true
+  console.log("Seed completed for users:", user);
+
+  const fueltypes = await prisma.fueltype.createMany({
+    data: [
+      { name: "Benzin" }, 
+      { name: "Diesel" },
+      { name: "Hybrid" }, 
+      { name: "Electricity" }, 
+      { name: "Coffee" } 
+    ]
   });
 
-  console.log('👥 Seeding users...');
-  const users = await getUserSeeds();
-  for (const user of users) {
-    await prisma.user.upsert({
-      where: { email: user.email },
-      create: user,
-      update: user
-    });
-  }
+  console.log("Seed completed for fueltypes:", fueltypes);
 
-  const brands = await prisma.brand.findMany();
-  const categories = await prisma.category.findMany();
+  const categories = await prisma.category.createMany({
+    data: [
+      { name: "Personbil" },
+      { name: "Varevogn" },
+      { name: "Lastbil" },
+      { name: "Autocamper" },
+      { name: "Andre" }
+    ]
+  });
+  console.log("Seed completed for categories:", categories);
 
-  console.log('🚗 Seeding cars...');
-  
-  const carSeeds = [
-    {
-      model: 'Corolla Hybrid',
-      year: randomYear(2020, 2024),
-      price: randomPrice(250000, 350000).toString(),
-      fueltype: 'Hybrid',
-      brandId: brands.find(b => b.name === 'Toyota')!.id,
-      categoryId: categories.find(c => c.name === 'Personbil')!.id
-    },
-    {
-      model: 'RAV4',
-      year: randomYear(2019, 2023),
-      price: randomPrice(350000, 450000).toString(),
-      fueltype: 'Benzin',
-      brandId: brands.find(b => b.name === 'Toyota')!.id,
-      categoryId: categories.find(c => c.name === 'Personbil')!.id
-    },
-    {
-      model: 'Golf GTI',
-      year: randomYear(2018, 2023),
-      price: randomPrice(280000, 400000).toString(),
-      fueltype: 'Benzin',
-      brandId: brands.find(b => b.name === 'Volkswagen')!.id,
-      categoryId: categories.find(c => c.name === 'Personbil')!.id
-    },
-    {
-      model: 'Tiguan',
-      year: randomYear(2020, 2024),
-      price: randomPrice(400000, 550000).toString(),
-      fueltype: 'Diesel',
-      brandId: brands.find(b => b.name === 'Volkswagen')!.id,
-      categoryId: categories.find(c => c.name === 'Personbil')!.id
-    },
-    {
-      model: '3-serie',
-      year: randomYear(2019, 2023),
-      price: randomPrice(450000, 650000).toString(),
-      fueltype: 'Diesel',
-      brandId: brands.find(b => b.name === 'BMW')!.id,
-      categoryId: categories.find(c => c.name === 'Personbil')!.id
-    },
-    {
-      model: 'X5',
-      year: randomYear(2020, 2024),
-      price: randomPrice(700000, 950000).toString(),
-      fueltype: 'Hybrid',
-      brandId: brands.find(b => b.name === 'BMW')!.id,
-      categoryId: categories.find(c => c.name === 'Personbil')!.id
-    },
-    {
-      model: 'E-Klasse',
-      year: randomYear(2018, 2023),
-      price: randomPrice(500000, 750000).toString(),
-      fueltype: 'Diesel',
-      brandId: brands.find(b => b.name === 'Mercedes-Benz')!.id,
-      categoryId: categories.find(c => c.name === 'Personbil')!.id
-    },
-    {
-      model: 'Transit Custom',
-      year: randomYear(2017, 2022),
-      price: randomPrice(200000, 350000).toString(),
-      fueltype: 'Diesel',
-      brandId: brands.find(b => b.name === 'Ford')!.id,
-      categoryId: categories.find(c => c.name === 'Varevogn')!.id
-    },
-    {
-      model: 'Model 3',
-      year: randomYear(2021, 2024),
-      price: randomPrice(400000, 550000).toString(),
-      fueltype: 'El',
-      brandId: brands.find(b => b.name === 'Tesla')!.id,
-      categoryId: categories.find(c => c.name === 'Personbil')!.id
-    },
-    {
-      model: 'Model Y',
-      year: randomYear(2022, 2024),
-      price: randomPrice(500000, 650000).toString(),
-      fueltype: 'El',
-      brandId: brands.find(b => b.name === 'Tesla')!.id,
-      categoryId: categories.find(c => c.name === 'Personbil')!.id
-    },
-    {
-      model: 'XC60',
-      year: randomYear(2019, 2023),
-      price: randomPrice(450000, 650000).toString(),
-      fueltype: 'Hybrid',
-      brandId: brands.find(b => b.name === 'Volvo')!.id,
-      categoryId: categories.find(c => c.name === 'Personbil')!.id
-    },
-    {
-      model: 'V90',
-      year: randomYear(2018, 2022),
-      price: randomPrice(500000, 700000).toString(),
-      fueltype: 'Diesel',
-      brandId: brands.find(b => b.name === 'Volvo')!.id,
-      categoryId: categories.find(c => c.name === 'Personbil')!.id
-    }
-  ];
+  const brands = await prisma.brand.createMany({
+    data: [
+      { name: "Toyota" },
+      { name: "Volkswagen" },
+      { name: "BMW" },
+      { name: "Mercedes-Benz" },
+      { name: "Ford" },
+      { name: "Tesla" },
+      { name: "Volvo" }
+    ]
+  });
+  console.log("Seed completed for brands:", brands);
 
-  for (const car of carSeeds) {
-    await prisma.car.create({
-      data: car
-    });
-  }
+  const allFueltypes = await prisma.fueltype.findMany();
+  const allCategories = await prisma.category.findMany();
+  const allBrands = await prisma.brand.findMany();
 
-  console.log('✅ Seed completed successfully!');
-  console.log(`   - ${brands.length} brands`);
-  console.log(`   - ${categories.length} categories`);
-  console.log(`   - ${users.length} users`);
-  console.log(`   - ${carSeeds.length} cars`);
+  const benzinId = allFueltypes.find(f => f.name === "Benzin")?.id || 1;
+  const dieselId = allFueltypes.find(f => f.name === "Diesel")?.id || 1;
+  const hybridId = allFueltypes.find(f => f.name === "Hybrid")?.id || 1;
+  const electricityId = allFueltypes.find(f => f.name === "Electricity")?.id || 1;
+
+  const personbilId = allCategories.find(c => c.name === "Personbil")?.id || 1;
+  const varevognId = allCategories.find(c => c.name === "Varevogn")?.id || 1;
+  const toyotaId = allBrands.find(b => b.name === "Toyota")?.id || 1;
+  const volkswagenId = allBrands.find(b => b.name === "Volkswagen")?.id || 1;
+  const teslaId = allBrands.find(b => b.name === "Tesla")?.id || 1;
+  const fordId = allBrands.find(b => b.name === "Ford")?.id || 1;
+  const volvoId = allBrands.find(b => b.name === "Volvo")?.id || 1;
+
+  const cars = await prisma.car.createMany({
+    data: [
+      {
+        model: "Corolla Hybrid",
+        year: 2023,
+        price: "299000",
+        categoryId: personbilId,
+        brandId: toyotaId,
+        fueltypeId: hybridId
+      },
+      {
+        model: "Golf GTI",
+        year: 2022,
+        price: "350000",
+        categoryId: personbilId,
+        brandId: volkswagenId,
+        fueltypeId: benzinId
+      },
+      {
+        model: "Model 3",
+        year: 2024,
+        price: "450000",
+        categoryId: personbilId,
+        brandId: teslaId,
+        fueltypeId: electricityId
+      },
+      {
+        model: "Transit Custom",
+        year: 2021,
+        price: "280000",
+        categoryId: varevognId,
+        brandId: fordId,
+        fueltypeId: dieselId
+      },
+      {
+        model: "XC60",
+        year: 2023,
+        price: "550000",
+        categoryId: personbilId,
+        brandId: volvoId,
+        fueltypeId: hybridId
+      }
+    ]
+  });
+  console.log("Seed completed for cars:", cars);
 }
 
 main()
-  .catch((error) => {
-    console.error('❌ Seed failed:', error);
+  .then(() => prisma.$disconnect()) 
+  .catch((e) => {
+    console.error(e); 
+    prisma.$disconnect();
     process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
   });

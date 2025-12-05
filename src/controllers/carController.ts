@@ -5,7 +5,7 @@ type CarPayload = {
   model?: string;
   year?: number;
   price?: string;
-  fueltype?: string;
+  fueltypeId?: number;
   brandId?: number;
   categoryId?: number;
 };
@@ -22,6 +22,12 @@ const includeRelations = {
       id: true,
       name: true
     }
+  },
+  fueltype: {
+    select: {
+      id: true,
+      name: true
+    }
   }
 };
 
@@ -30,7 +36,7 @@ const parseCarPayload = (body: Request['body']): CarPayload => {
 
   if (body.model !== undefined) payload.model = String(body.model);
   if (body.price !== undefined) payload.price = String(body.price);
-  if (body.fueltype !== undefined) payload.fueltype = String(body.fueltype);
+  if (body.fueltypeId !== undefined) payload.fueltypeId = Number(body.fueltypeId);
   if (body.year !== undefined) payload.year = Number(body.year);
   if (body.brandId !== undefined) payload.brandId = Number(body.brandId);
   if (body.categoryId !== undefined) payload.categoryId = Number(body.categoryId);
@@ -38,15 +44,17 @@ const parseCarPayload = (body: Request['body']): CarPayload => {
   return payload;
 };
 
-const verifyRelations = async (brandId: number, categoryId: number) => {
-  const [brand, category] = await Promise.all([
+const verifyRelations = async (brandId: number, categoryId: number, fueltypeId: number) => {
+  const [brand, category, fueltype] = await Promise.all([
     prisma.brand.findUnique({ where: { id: brandId }, select: { id: true } }),
-    prisma.category.findUnique({ where: { id: categoryId }, select: { id: true } })
+    prisma.category.findUnique({ where: { id: categoryId }, select: { id: true } }),
+    prisma.fueltype.findUnique({ where: { id: fueltypeId }, select: { id: true } })
   ]);
 
   return {
     brandExists: Boolean(brand),
-    categoryExists: Boolean(category)
+    categoryExists: Boolean(category),
+    fueltypeExists: Boolean(fueltype)
   };
 };
 
@@ -89,23 +97,23 @@ export const getRecordById = async (req: Request, res: Response) => {
 };
 
 export const createRecord = async (req: Request, res: Response) => {
-  const { brandId, categoryId, model, year, price, fueltype } = parseCarPayload(req.body);
+  const { brandId, categoryId, fueltypeId, model, year, price } = parseCarPayload(req.body);
 
   if (
     brandId === undefined ||
     categoryId === undefined ||
+    fueltypeId === undefined ||
     !model ||
     year === undefined ||
-    !price ||
-    !fueltype
+    !price
   ) {
     return res.status(400).json({ error: 'Alle felter skal udfyldes' });
   }
 
-  const { brandExists, categoryExists } = await verifyRelations(brandId, categoryId);
+  const { brandExists, categoryExists, fueltypeExists } = await verifyRelations(brandId, categoryId, fueltypeId);
 
-  if (!brandExists || !categoryExists) {
-    return res.status(404).json({ error: 'Brand eller kategori blev ikke fundet' });
+  if (!brandExists || !categoryExists || !fueltypeExists) {
+    return res.status(404).json({ error: 'Brand, kategori eller drivmiddel blev ikke fundet' });
   }
 
   try {
@@ -113,10 +121,10 @@ export const createRecord = async (req: Request, res: Response) => {
       data: {
         categoryId,
         brandId,
+        fueltypeId,
         model,
         year,
-        price,
-        fueltype
+        price
       },
       include: includeRelations
     });
@@ -141,14 +149,15 @@ export const updateRecord = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Bil ikke fundet' });
     }
 
-    if (payload.brandId !== undefined || payload.categoryId !== undefined) {
+    if (payload.brandId !== undefined || payload.categoryId !== undefined || payload.fueltypeId !== undefined) {
       const relationBrandId = payload.brandId ?? existingCar.brandId;
       const relationCategoryId = payload.categoryId ?? existingCar.categoryId;
+      const relationFueltypeId = payload.fueltypeId ?? existingCar.fueltypeId;
 
-      const { brandExists, categoryExists } = await verifyRelations(relationBrandId, relationCategoryId);
+      const { brandExists, categoryExists, fueltypeExists } = await verifyRelations(relationBrandId, relationCategoryId, relationFueltypeId);
 
-      if (!brandExists || !categoryExists) {
-        return res.status(404).json({ error: 'Brand eller kategori blev ikke fundet' });
+      if (!brandExists || !categoryExists || !fueltypeExists) {
+        return res.status(404).json({ error: 'Brand, kategori eller drivmiddel blev ikke fundet' });
       }
     }
 
@@ -159,10 +168,10 @@ export const updateRecord = async (req: Request, res: Response) => {
       data: {
         categoryId: payload.categoryId ?? existingCar.categoryId,
         brandId: payload.brandId ?? existingCar.brandId,
+        fueltypeId: payload.fueltypeId ?? existingCar.fueltypeId,
         model: payload.model ?? existingCar.model,
         year: payload.year ?? existingCar.year,
-        price: payload.price ?? existingCar.price,
-        fueltype: payload.fueltype ?? existingCar.fueltype
+        price: payload.price ?? existingCar.price
       },
       include: includeRelations
     });
